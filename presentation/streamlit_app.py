@@ -1,15 +1,11 @@
 import streamlit as st
 import asyncio
+import os
 from datetime import datetime
 
-from connectors.yahoo import YahooConnector
-from connectors.google_finance import GoogleFinanceConnector
-from connectors.news import NewsConnector
-from agents.chart_master import ChartMaster
-from agents.news_hound import NewsHound
-from agents.signal_pro import SignalPro
-from agents.director import Director
-from pipelines.full_analysis import FullAnalysisPipeline
+# Direct imports instead of module imports
+import sys
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 st.set_page_config(page_title="4-Agent Stock AI", page_icon="📊", layout="wide")
 
@@ -36,6 +32,16 @@ with col2:
 if analyze_btn:
     with st.spinner('🤖 Running analysis...'):
         try:
+            # Import here to avoid circular imports
+            from connectors.yahoo import YahooConnector
+            from connectors.google_finance import GoogleFinanceConnector
+            from connectors.news import NewsConnector
+            from agents.chart_master import ChartMaster
+            from agents.news_hound import NewsHound
+            from agents.signal_pro import SignalPro
+            from agents.director import Director
+            from pipelines.full_analysis import FullAnalysisPipeline
+            
             if data_source == "Yahoo Finance":
                 data_providers = [YahooConnector(), NewsConnector()]
             elif data_source == "Google Finance":
