@@ -1,7 +1,11 @@
 import streamlit as st
 import asyncio
 import os
+import sys
 from datetime import datetime
+
+# Add project root to path so imports work
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 st.set_page_config(page_title="4-Agent Stock AI", page_icon="📊", layout="wide")
 
@@ -33,7 +37,7 @@ for i, col in enumerate(cols):
         if st.button(quick_tickers[i], use_container_width=True):
             ticker = quick_tickers[i]
 
-async def run_analysis_async(ticker, question, data_source, agents):
+async def run_analysis_async(ticker, question, data_source, use_chart, use_news, use_signal, use_director):
     """Async function to run analysis"""
     from connectors.yahoo import YahooConnector
     from connectors.google_finance import GoogleFinanceConnector
@@ -52,32 +56,26 @@ async def run_analysis_async(ticker, question, data_source, agents):
     else:
         data_providers = [YahooConnector(), GoogleFinanceConnector(), NewsConnector()]
     
+    # Setup agents
+    agents = []
+    if use_chart: agents.append(ChartMaster())
+    if use_news: agents.append(NewsHound())
+    if use_signal: agents.append(SignalPro())
+    if use_director: agents.append(Director())
+    
     # Run pipeline
     pipeline = FullAnalysisPipeline(data_providers, agents, None)
     return await pipeline.run(ticker, question)
 
-def run_analysis(ticker, question, data_source, agents):
+def run_analysis(ticker, question, data_source, use_chart, use_news, use_signal, use_director):
     """Wrapper to run async code"""
-    return asyncio.run(run_analysis_async(ticker, question, data_source, agents))
+    return asyncio.run(run_analysis_async(ticker, question, data_source, use_chart, use_news, use_signal, use_director))
 
 if analyze_btn:
     with st.spinner('🤖 Running analysis... This may take 30-60 seconds.'):
         try:
-            # Import agents
-            from agents.chart_master import ChartMaster
-            from agents.news_hound import NewsHound
-            from agents.signal_pro import SignalPro
-            from agents.director import Director
-            
-            # Setup agents
-            agents = []
-            if use_chart: agents.append(ChartMaster())
-            if use_news: agents.append(NewsHound())
-            if use_signal: agents.append(SignalPro())
-            if use_director: agents.append(Director())
-            
             # Run analysis
-            result = run_analysis(ticker, question, data_source, agents)
+            result = run_analysis(ticker, question, data_source, use_chart, use_news, use_signal, use_director)
             st.session_state.analysis_result = result
             
         except Exception as e:
