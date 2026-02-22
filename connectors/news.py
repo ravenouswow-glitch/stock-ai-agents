@@ -5,13 +5,6 @@ import requests
 import re
 
 class NewsConnector(IDataProvider):
-    """
-    News connector with RNS support for UK stocks:
-    1. RNS (Regulatory News Service) - UK stocks priority
-    2. DuckDuckGo Search
-    3. Google News RSS
-    """
-    
     def __init__(self, max_results: int = 10):
         self.max_results = max_results
     
@@ -26,8 +19,6 @@ class NewsConnector(IDataProvider):
     
     def get_news(self, ticker: str, max_items: int = 5) -> List[NewsItem]:
         """Fetch news with RNS priority for UK stocks"""
-        
-        # For UK stocks, try RNS first
         if ticker.endswith(".L"):
             try:
                 news = self._fetch_rns_news(ticker, max_items)
@@ -37,7 +28,6 @@ class NewsConnector(IDataProvider):
             except Exception as e:
                 print(f"RNS failed for {ticker}: {e}")
         
-        # Try DuckDuckGo
         try:
             news = self._fetch_ddgs_news(ticker, max_items)
             if news:
@@ -46,7 +36,6 @@ class NewsConnector(IDataProvider):
         except Exception as e:
             print(f"DuckDuckGo failed for {ticker}: {e}")
         
-        # Fallback: Google News RSS
         try:
             news = self._fetch_google_news(ticker, max_items)
             if news:
@@ -59,30 +48,17 @@ class NewsConnector(IDataProvider):
         return []
     
     def _fetch_rns_news(self, ticker: str, max_items: int) -> List[NewsItem]:
-        """Fetch RNS (Regulatory News Service) announcements for UK stocks"""
         try:
-            # Clean ticker (remove .L)
             clean_ticker = ticker.replace(".L", "")
-            
-            # RNS search via Google (RNS doesn't have public API)
             rns_query = f"{clean_ticker} RNS site:rns-pdf.londonstockexchange.com"
-            
             rss_url = f"https://news.google.com/rss/search?q={rns_query}&hl=en-GB&gl=GB&ceid=GB:en"
-            
-            headers = {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-            }
-            
+            headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(rss_url, headers=headers, timeout=10)
-            
             if response.status_code != 200:
-                return []
+                return self._fetch_rns_alternative(ticker, max_items)
             
-            # Parse RSS
             items = re.findall(r'<item>(.*?)</item>', response.text, re.DOTALL)
-            
             if not items:
-                # Try alternative RNS search
                 return self._fetch_rns_alternative(ticker, max_items)
             
             news_items = []
@@ -90,18 +66,11 @@ class NewsConnector(IDataProvider):
                 title_match = re.search(r'<title>(.*?)</title>', item)
                 link_match = re.search(r'<link>(.*?)</link>', item)
                 date_match = re.search(r'<pubDate>(.*?)</pubDate>', item)
-                
                 if title_match:
-                    title = title_match.group(1).strip()
-                    # Clean up RNS title
-                    title = re.sub(r'\s*-\s*RNS.*$', '', title, flags=re.IGNORECASE)
-                    
+                    title = re.sub(r'\s*-\s*RNS.*$', '', title_match.group(1).strip(), flags=re.IGNORECASE)
                     link = link_match.group(1).strip() if link_match else ''
                     date = date_match.group(1).strip() if date_match else datetime.now().strftime("%Y-%m-%d")
-                    
-                    # Determine announcement type
                     ann_type = self._classify_rns_announcement(title)
-                    
                     news_items.append(NewsItem(
                         title=f"[{ann_type}] {title[:80]}",
                         source="RNS/LSE",
@@ -109,125 +78,63 @@ class NewsConnector(IDataProvider):
                         url=link,
                         sentiment=self._analyze_rns_sentiment(title)
                     ))
-            
             return news_items
         except Exception as e:
-            print(f"RNS fetch error: {e}")
             return []
     
     def _fetch_rns_alternative(self, ticker: str, max_items: int) -> List[NewsItem]:
-        """Alternative RNS search method"""
         try:
             clean_ticker = ticker.replace(".L", "")
-            
-            # Search for company name + RNS
-            company_names = {
-                "LLOY": "Lloyds Banking Group",
-                "BARC": "Barclays",
-                "HSBA": "HSBC Holdings",
-                "VOD": "Vodafone Group",
-                "BP.": "BP plc",
-                "SHEL": "Shell plc",
-                "AZN": "AstraZeneca",
-                "GSK": "GSK plc",
-            }
-            
+            company_names = {"LLOY": "Lloyds Banking Group", "BARC": "Barclays", "HSBA": "HSBC Holdings"}
             company_name = company_names.get(clean_ticker, clean_ticker)
             query = f"{company_name} RNS announcement regulatory news"
-            
             rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-GB&gl=GB&ceid=GB:en"
-            
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(rss_url, headers=headers, timeout=10)
-            
             if response.status_code != 200:
                 return []
-            
             items = re.findall(r'<item>(.*?)</item>', response.text, re.DOTALL)
-            
             news_items = []
             for item in items[:max_items]:
                 title_match = re.search(r'<title>(.*?)</title>', item)
                 link_match = re.search(r'<link>(.*?)</link>', item)
                 date_match = re.search(r'<pubDate>(.*?)</pubDate>', item)
-                
                 if title_match:
                     title = title_match.group(1).strip()[:100]
                     link = link_match.group(1).strip() if link_match else ''
                     date = date_match.group(1).strip() if date_match else datetime.now().strftime("%Y-%m-%d")
-                    
-                    news_items.append(NewsItem(
-                        title=f"[RNS] {title}",
-                        source="RNS/LSE",
-                        date=date,
-                        url=link,
-                        sentiment=self._analyze_rns_sentiment(title)
-                    ))
-            
+                    news_items.append(NewsItem(title=f"[RNS] {title}", source="RNS/LSE", date=date, url=link, sentiment=self._analyze_rns_sentiment(title)))
             return news_items
-        except Exception as e:
-            print(f"RNS alternative error: {e}")
+        except:
             return []
     
     def _classify_rns_announcement(self, title: str) -> str:
-        """Classify RNS announcement type"""
         title_lower = title.lower()
-        
-        if any(w in title_lower for w in ['result', 'earnings', 'trading update', 'financial']):
-            return "FINANCIAL"
-        elif any(w in title_lower for w in ['dividend', 'distribution']):
-            return "DIVIDEND"
-        elif any(w in title_lower for w in ['director', 'dealings', 'insider']):
-            return "DIRECTOR DEALINGS"
-        elif any(w in title_lower for w in ['acquisition', 'merger', 'takeover']):
-            return "M&A"
-        elif any(w in title_lower for w in ['buyback', 'own shares', 'purchase']):
-            return "SHARE BUYBACK"
-        else:
-            return "REGULATORY"
+        if any(w in title_lower for w in ['result', 'earnings', 'trading update', 'financial']): return "FINANCIAL"
+        elif any(w in title_lower for w in ['dividend', 'distribution']): return "DIVIDEND"
+        elif any(w in title_lower for w in ['director', 'dealings', 'insider']): return "DIRECTOR DEALINGS"
+        elif any(w in title_lower for w in ['acquisition', 'merger', 'takeover']): return "M&A"
+        elif any(w in title_lower for w in ['buyback', 'own shares', 'purchase']): return "SHARE BUYBACK"
+        else: return "REGULATORY"
     
     def _analyze_rns_sentiment(self, title: str) -> str:
-        """Analyze sentiment of RNS announcement"""
         title_lower = title.lower()
-        
-        # Positive indicators
-        positive = [
-            'beat', 'growth', 'increase', 'rise', 'profit', 'gain', 'upgrade',
-            'strong', 'outperform', 'record', 'higher', 'improve', 'success',
-            'dividend increase', 'buyback', 'acquisition'
-        ]
-        
-        # Negative indicators
-        negative = [
-            'miss', 'loss', 'decline', 'drop', 'fall', 'warning', 'downgrade',
-            'weak', 'decrease', 'lower', 'worsen', 'crisis', 'investigation',
-            'lawsuit', 'penalty', 'fine'
-        ]
-        
+        positive = ['beat', 'growth', 'increase', 'rise', 'profit', 'gain', 'upgrade', 'strong', 'dividend increase', 'buyback']
+        negative = ['miss', 'loss', 'decline', 'drop', 'fall', 'warning', 'downgrade', 'weak', 'crisis', 'lawsuit']
         pos_count = sum(1 for w in positive if w in title_lower)
         neg_count = sum(1 for w in negative if w in title_lower)
-        
-        if pos_count > neg_count:
-            return 'Bullish'
-        elif neg_count > pos_count:
-            return 'Bearish'
+        if pos_count > neg_count: return 'Bullish'
+        elif neg_count > pos_count: return 'Bearish'
         return 'Neutral'
     
     def _fetch_ddgs_news(self, ticker: str, max_items: int) -> List[NewsItem]:
-        """Fetch news from DuckDuckGo Search"""
         try:
-            try:
-                from ddgs import DDGS
-            except ImportError:
-                from duckduckgo_search import DDGS
-            
+            try: from ddgs import DDGS
+            except ImportError: from duckduckgo_search import DDGS
             with DDGS() as ddgs:
                 query = self._build_search_query(ticker)
                 results = list(ddgs.text(query, max_results=self.max_results))
-                
-                if not results:
-                    return []
-                
+                if not results: return []
                 news_items = []
                 for item in results[:max_items]:
                     title = item.get('title', '')[:100]
@@ -235,133 +142,68 @@ class NewsConnector(IDataProvider):
                     body = item.get('body', '')
                     source = self._extract_source(href)
                     sentiment = self._analyze_sentiment(body)
-                    
-                    news_items.append(NewsItem(
-                        title=title,
-                        source=source,
-                        date=datetime.now().strftime("%Y-%m-%d"),
-                        url=href,
-                        sentiment=sentiment
-                    ))
-                
+                    news_items.append(NewsItem(title=title, source=source, date=datetime.now().strftime("%Y-%m-%d"), url=href, sentiment=sentiment))
                 return news_items
-        except Exception as e:
-            print(f"DDGS error: {e}")
-            return []
+        except: return []
     
     def _fetch_google_news(self, ticker: str, max_items: int) -> List[NewsItem]:
-        """Fetch news from Google News RSS"""
         try:
             query = self._build_search_query(ticker)
             rss_url = f"https://news.google.com/rss/search?q={query}&hl=en-US&gl=US&ceid=US:en"
-            
             headers = {'User-Agent': 'Mozilla/5.0'}
             response = requests.get(rss_url, headers=headers, timeout=10)
-            
-            if response.status_code != 200:
-                return []
-            
+            if response.status_code != 200: return []
             items = re.findall(r'<item>(.*?)</item>', response.text, re.DOTALL)
-            
-            if not items:
-                return []
-            
+            if not items: return []
             exclude_keywords = self._get_exclude_keywords(ticker)
             include_keywords = self._get_include_keywords(ticker)
-            
             news_items = []
             for item in items[:max_items * 3]:
                 title_match = re.search(r'<title>(.*?)</title>', item)
                 link_match = re.search(r'<link>(.*?)</link>', item)
                 date_match = re.search(r'<pubDate>(.*?)</pubDate>', item)
-                
-                if not title_match:
-                    continue
-                
+                if not title_match: continue
                 title = title_match.group(1).strip()
                 title_lower = title.lower()
-                
-                if any(kw in title_lower for kw in exclude_keywords):
-                    continue
-                
-                if include_keywords and not any(kw in title_lower for kw in include_keywords):
-                    continue
-                
+                if any(kw in title_lower for kw in exclude_keywords): continue
+                if include_keywords and not any(kw in title_lower for kw in include_keywords): continue
                 link = link_match.group(1).strip() if link_match else ''
                 date = date_match.group(1).strip() if date_match else datetime.now().strftime("%Y-%m-%d")
                 source = self._extract_source(link)
-                
-                news_items.append(NewsItem(
-                    title=title[:100],
-                    source=source,
-                    date=date,
-                    url=link,
-                    sentiment=self._analyze_sentiment(title)
-                ))
-                
-                if len(news_items) >= max_items:
-                    break
-            
+                news_items.append(NewsItem(title=title[:100], source=source, date=date, url=link, sentiment=self._analyze_sentiment(title)))
+                if len(news_items) >= max_items: break
             return news_items
-        except Exception as e:
-            print(f"Google News error: {e}")
-            return []
+        except: return []
     
     def _build_search_query(self, ticker: str) -> str:
-        """Build search query"""
-        ticker_queries = {
-            "LLOY.L": "Lloyds Banking Group stock",
-            "BARC.L": "Barclays bank stock",
-            "HSBA.L": "HSBC Holdings stock",
-        }
-        
-        if ticker in ticker_queries:
-            return ticker_queries[ticker]
-        
+        ticker_queries = {"LLOY.L": "Lloyds Banking Group stock", "BARC.L": "Barclays bank stock", "HSBA.L": "HSBC Holdings stock"}
+        if ticker in ticker_queries: return ticker_queries[ticker]
         is_uk = ticker.endswith(".L")
         clean_ticker = ticker.replace(".L", "")
-        
-        if is_uk:
-            return f"{clean_ticker} London Stock Exchange stock"
-        else:
-            return f"{ticker} stock news"
+        if is_uk: return f"{clean_ticker} London Stock Exchange stock"
+        else: return f"{ticker} stock news"
     
     def _get_exclude_keywords(self, ticker: str) -> List[str]:
-        """Get exclude keywords"""
-        exclude_map = {
-            "LLOY.L": ['hapag-lloyd', 'jamie lloyd', 'lloyd webber', 'shipping', 'theater'],
-        }
+        exclude_map = {"LLOY.L": ['hapag-lloyd', 'jamie lloyd', 'lloyd webber', 'shipping', 'theater']}
         return exclude_map.get(ticker, [])
     
     def _get_include_keywords(self, ticker: str) -> List[str]:
-        """Get include keywords for financial stocks"""
         financial_tickers = ["LLOY.L", "BARC.L", "HSBA.L"]
-        
-        if ticker in financial_tickers:
-            return ['bank', 'banking', 'shares', 'stock', 'earnings', 'profit', 'dividend']
+        if ticker in financial_tickers: return ['bank', 'banking', 'shares', 'stock', 'earnings', 'profit', 'dividend']
         return []
     
     def _extract_source(self, url: str) -> str:
-        """Extract source from URL"""
-        if not url or '/' not in url:
-            return "Unknown"
+        if not url or '/' not in url: return "Unknown"
         try:
             domain = url.split('/')[2].lower().replace('www.', '')
             return domain.replace('.com', '').replace('.co.uk', '').title()
-        except:
-            return "News"
+        except: return "News"
     
     def _analyze_sentiment(self, text: str) -> str:
-        """Analyze sentiment"""
-        if not text:
-            return 'Neutral'
-        
+        if not text: return 'Neutral'
         text = text.lower()
         bullish = sum(1 for w in ['beat', 'upgrade', 'growth', 'gain', 'profit', 'strong'] if w in text)
         bearish = sum(1 for w in ['miss', 'downgrade', 'loss', 'warning', 'decline', 'weak'] if w in text)
-        
-        if bullish > bearish:
-            return 'Bullish'
-        elif bearish > bullish:
-            return 'Bearish'
+        if bullish > bearish: return 'Bullish'
+        elif bearish > bullish: return 'Bearish'
         return 'Neutral'

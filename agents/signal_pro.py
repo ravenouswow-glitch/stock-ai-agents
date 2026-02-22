@@ -3,8 +3,6 @@ from datetime import datetime
 import re
 
 class SignalPro(IAgent):
-    """Trading Signal Agent"""
-    
     @property
     def name(self) -> str:
         return "SignalPro"
@@ -18,7 +16,6 @@ class SignalPro(IAgent):
         tech = agent_input.technical_data
         chart = agent_input.context.get('chart_analysis', 'N/A')
         news = agent_input.context.get('news_analysis', 'N/A')
-        
         return f"""SignalPro Trading Analysis for {agent_input.ticker}
 
 TECHNICAL DATA:
@@ -43,17 +40,7 @@ DONE"""
     def parse_response(self, response: str) -> AgentOutput:
         conf_match = re.search(r'Confidence:\s*(\d+)', response, re.IGNORECASE)
         confidence = int(conf_match.group(1)) if conf_match else 5
-        
         signal = "Hold"
-        if "BUY" in response.upper():
-            signal = "Buy"
-        elif "SELL" in response.upper():
-            signal = "Sell"
-        
-        return AgentOutput(
-            agent_name=self.name,
-            content=response,
-            confidence=confidence,
-            metadata={'type': 'signal', 'signal': signal},
-            success=True
-        )
+        if "BUY" in response.upper(): signal = "Buy"
+        elif "SELL" in response.upper(): signal = "Sell"
+        return AgentOutput(agent_name=self.name, content=response, confidence=confidence, metadata={'type': 'signal', 'signal': signal}, success=True)

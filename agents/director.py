@@ -3,8 +3,6 @@ from datetime import datetime
 import re
 
 class Director(IAgent):
-    """Final Decision Agent"""
-    
     @property
     def name(self) -> str:
         return "Director"
@@ -18,7 +16,6 @@ class Director(IAgent):
         chart = agent_input.context.get('chart_analysis', 'N/A')
         news = agent_input.context.get('news_analysis', 'N/A')
         signal = agent_input.context.get('signal_analysis', 'N/A')
-        
         return f"""Director Final Recommendation for {agent_input.ticker}
 
 CHARTMASTER: {chart[:400] if chart else 'N/A'}
@@ -40,11 +37,4 @@ Data Timestamp: {datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")}"""
     def parse_response(self, response: str) -> AgentOutput:
         conf_match = re.search(r'Confidence:\s*(\d+)', response, re.IGNORECASE)
         confidence = int(conf_match.group(1)) if conf_match else 5
-        
-        return AgentOutput(
-            agent_name=self.name,
-            content=response,
-            confidence=confidence,
-            metadata={'type': 'final'},
-            success=True
-        )
+        return AgentOutput(agent_name=self.name, content=response, confidence=confidence, metadata={'type': 'final'}, success=True)

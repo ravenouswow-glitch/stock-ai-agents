@@ -22,6 +22,18 @@ class TechnicalData:
     resistance: float
     currency: str
     symbol: str
+    # Advanced Indicators
+    macd_line: Optional[float] = None
+    macd_signal: Optional[float] = None
+    macd_histogram: Optional[float] = None
+    bb_upper: Optional[float] = None
+    bb_middle: Optional[float] = None
+    bb_lower: Optional[float] = None
+    bb_width: Optional[float] = None
+    volume: Optional[float] = None
+    volume_sma20: Optional[float] = None
+    atr: Optional[float] = None
+    stoch_rsi: Optional[float] = None
 
 @dataclass
 class NewsItem:

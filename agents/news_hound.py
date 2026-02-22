@@ -3,8 +3,6 @@ from datetime import datetime
 import re
 
 class NewsHound(IAgent):
-    """News Analysis Agent"""
-    
     @property
     def name(self) -> str:
         return "NewsHound"
@@ -18,9 +16,7 @@ class NewsHound(IAgent):
         news = agent_input.news_data
         if not news:
             return f"No news available for {agent_input.ticker}"
-        
         news_text = "\n".join([f"- {n.title} ({n.sentiment})" for n in news[:5]])
-        
         return f"""NewsHound Analysis for {agent_input.ticker}
 
 RECENT NEWS:
@@ -40,11 +36,4 @@ Date|Source|Headline|Sentiment
     def parse_response(self, response: str) -> AgentOutput:
         conf_match = re.search(r'\[CONFIDENCE\]\s*(\d+)', response, re.IGNORECASE)
         confidence = int(conf_match.group(1)) if conf_match else 5
-        
-        return AgentOutput(
-            agent_name=self.name,
-            content=response,
-            confidence=confidence,
-            metadata={'type': 'news', 'articles': len(input.news_data) if hasattr(input, 'news_data') else 0},
-            success=True
-        )
+        return AgentOutput(agent_name=self.name, content=response, confidence=confidence, metadata={'type': 'news', 'articles': len(agent_input.news_data)}, success=True)
