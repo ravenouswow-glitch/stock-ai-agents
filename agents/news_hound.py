@@ -3,6 +3,8 @@ from datetime import datetime
 import re
 
 class NewsHound(IAgent):
+    """News Analysis Agent"""
+    
     @property
     def name(self) -> str:
         return "NewsHound"
@@ -12,24 +14,27 @@ class NewsHound(IAgent):
         from config import Config
         return Config.MODELS['fast']
     
-    def build_prompt(self, input: AgentInput) -> str:
-        news = input.news_data
+    def build_prompt(self, agent_input: AgentInput) -> str:
+        news = agent_input.news_data
         if not news:
-            return f"No news available for {input.ticker}"
+            return f"No news available for {agent_input.ticker}"
         
         news_text = "\n".join([f"- {n.title} ({n.sentiment})" for n in news[:5]])
         
-        return f"""NewsHound Analysis for {input.ticker}
+        return f"""NewsHound Analysis for {agent_input.ticker}
 
 RECENT NEWS:
 {news_text}
 
-QUESTION: {input.question}
+QUESTION: {agent_input.question}
 
-FORMAT:
+FORMAT EXACTLY:
 [TIMESTAMP] {datetime.now().strftime("%Y-%m-%d %H:%M UTC")}
 [SOURCES] {len(news)} articles
 [SUMMARY] One line: overall sentiment + key catalyst
+[TABLE]
+Date|Source|Headline|Sentiment
+{chr(10).join([f"{n.date}|{n.source}|{n.title}|{n.sentiment}" for n in news[:3]])}
 [CONFIDENCE] 1-10"""
     
     def parse_response(self, response: str) -> AgentOutput:
@@ -40,6 +45,6 @@ FORMAT:
             agent_name=self.name,
             content=response,
             confidence=confidence,
-            metadata={'type': 'news', 'articles': len(input.news_data)},
+            metadata={'type': 'news', 'articles': len(input.news_data) if hasattr(input, 'news_data') else 0},
             success=True
         )

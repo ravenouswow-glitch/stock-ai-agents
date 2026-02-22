@@ -3,6 +3,8 @@ from datetime import datetime
 import re
 
 class ChartMaster(IAgent):
+    """Technical Analysis Agent"""
+    
     @property
     def name(self) -> str:
         return "ChartMaster"
@@ -12,12 +14,12 @@ class ChartMaster(IAgent):
         from config import Config
         return Config.MODELS['fast']
     
-    def build_prompt(self, input: AgentInput) -> str:
-        tech = input.technical_data
+    def build_prompt(self, agent_input: AgentInput) -> str:
+        tech = agent_input.technical_data
         if not tech:
-            return f"No technical data available for {input.ticker}"
+            return f"No technical data available for {agent_input.ticker}"
         
-        return f"""ChartMaster Technical Analysis for {input.ticker}
+        return f"""ChartMaster Technical Analysis for {agent_input.ticker}
 
 DATA:
 - Current Price: {tech.symbol}{tech.current:.2f} {tech.currency}
@@ -26,7 +28,7 @@ DATA:
 - RSI (14): {tech.rsi:.1f}
 - Trend: {tech.trend}
 
-QUESTION: {input.question}
+QUESTION: {agent_input.question}
 
 FORMAT:
 [TIMESTAMP] {datetime.now().strftime("%Y-%m-%d %H:%M UTC")}

@@ -3,6 +3,8 @@ from datetime import datetime
 import re
 
 class Director(IAgent):
+    """Final Decision Agent"""
+    
     @property
     def name(self) -> str:
         return "Director"
@@ -12,22 +14,22 @@ class Director(IAgent):
         from config import Config
         return Config.MODELS['smart']
     
-    def build_prompt(self, input: AgentInput) -> str:
-        chart = input.context.get('chart_analysis', 'N/A')
-        news = input.context.get('news_analysis', 'N/A')
-        signal = input.context.get('signal_analysis', 'N/A')
+    def build_prompt(self, agent_input: AgentInput) -> str:
+        chart = agent_input.context.get('chart_analysis', 'N/A')
+        news = agent_input.context.get('news_analysis', 'N/A')
+        signal = agent_input.context.get('signal_analysis', 'N/A')
         
-        return f"""Director Final Recommendation for {input.ticker}
+        return f"""Director Final Recommendation for {agent_input.ticker}
 
 CHARTMASTER: {chart[:400] if chart else 'N/A'}
 NEWSHOUND: {news[:400] if news else 'N/A'}
 SIGNALPRO: {signal[:400] if signal else 'N/A'}
 
-QUESTION: {input.question}
+QUESTION: {agent_input.question}
 
 FORMAT EXACTLY:
 === DIRECTOR ANSWER ===
-Question: {input.question}
+Question: {agent_input.question}
 Answer: [Buy/Hold/Sell/Wait + one line reason]
 Why: [Brief explanation]
 Confidence: [1-10]/10

@@ -3,6 +3,8 @@ from datetime import datetime
 import re
 
 class SignalPro(IAgent):
+    """Trading Signal Agent"""
+    
     @property
     def name(self) -> str:
         return "SignalPro"
@@ -12,12 +14,12 @@ class SignalPro(IAgent):
         from config import Config
         return Config.MODELS['smart']
     
-    def build_prompt(self, input: AgentInput) -> str:
-        tech = input.technical_data
-        chart = input.context.get('chart_analysis', 'N/A')
-        news = input.context.get('news_analysis', 'N/A')
+    def build_prompt(self, agent_input: AgentInput) -> str:
+        tech = agent_input.technical_data
+        chart = agent_input.context.get('chart_analysis', 'N/A')
+        news = agent_input.context.get('news_analysis', 'N/A')
         
-        return f"""SignalPro Trading Analysis for {input.ticker}
+        return f"""SignalPro Trading Analysis for {agent_input.ticker}
 
 TECHNICAL DATA:
 - Price: {tech.symbol}{tech.current:.2f} {tech.currency}
@@ -29,7 +31,7 @@ CHART ANALYSIS:
 NEWS ANALYSIS:
 {news[:300] if news else 'N/A'}
 
-QUESTION: {input.question}
+QUESTION: {agent_input.question}
 
 FORMAT:
 [TIMESTAMP] {datetime.now().strftime("%Y-%m-%d %H:%M UTC")}
