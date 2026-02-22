@@ -12,7 +12,7 @@ st.set_page_config(
     layout="wide"
 )
 
-# Simple CSS
+# CSS
 st.markdown("""
 <style>
     .main-header {font-size: 2.5rem; color: #1a73e8; font-weight: bold;}
@@ -25,6 +25,8 @@ if 'analysis_result' not in st.session_state:
     st.session_state.analysis_result = None
 if 'chart_data' not in st.session_state:
     st.session_state.chart_data = None
+if 'show_charts' not in st.session_state:
+    st.session_state.show_charts = False
 
 # Header
 st.markdown('<p class="main-header">📈 4-Agent Stock AI</p>', unsafe_allow_html=True)
@@ -60,7 +62,7 @@ for i, col in enumerate(cols):
 if analyze_btn and ticker:
     try:
         with st.spinner('🤖 Running analysis... This may take 30-60 seconds.'):
-            # Import here to catch errors early
+            # Import modules
             try:
                 from connectors.yahoo import YahooConnector
                 from connectors.google_finance import GoogleFinanceConnector
@@ -72,20 +74,18 @@ if analyze_btn and ticker:
                 from pipelines.full_analysis import FullAnalysisPipeline
                 import asyncio
                 import yfinance as yf
-                import pandas as pd
             except ImportError as e:
                 st.error(f"❌ Import error: {e}")
                 st.stop()
             
-            # Fetch chart data
+            # Fetch chart data for optional display
             try:
                 stock = yf.Ticker(ticker)
                 df = stock.history(period="3mo")
                 if not df.empty:
                     st.session_state.chart_data = df
-                    st.success(f"✅ Fetched data for {ticker}")
             except Exception as e:
-                st.warning(f"⚠️ Could not fetch chart data: {e}")
+                st.session_state.chart_data = None
             
             # Setup providers
             if data_source == "Yahoo Finance":
@@ -119,13 +119,9 @@ if analyze_btn and ticker:
                     
             except Exception as e:
                 st.error(f"❌ Pipeline error: {e}")
-                import traceback
-                st.code(traceback.format_exc())
                 
     except Exception as e:
         st.error(f"❌ Unexpected error: {e}")
-        import traceback
-        st.code(traceback.format_exc())
 
 # Display results
 if st.session_state.analysis_result:
@@ -154,12 +150,18 @@ if st.session_state.analysis_result:
             with st.expander(f"{agent_name} Analysis", expanded=False):
                 st.write(output.content)
                 st.caption(f"Confidence: {output.confidence}/10")
+        
+        # Charts button
+        st.divider()
+        if st.session_state.chart_data is not None:
+            if st.button("📊 Show Price Chart"):
+                st.session_state.show_charts = not st.session_state.show_charts
     
     else:
         st.error(f"❌ Failed: {result.error}")
 
-# Chart section
-if st.session_state.chart_data is not None:
+# Show charts if requested
+if st.session_state.get('show_charts', False) and st.session_state.chart_data is not None:
     st.markdown("### 📊 Price Chart")
     df = st.session_state.chart_data
     
