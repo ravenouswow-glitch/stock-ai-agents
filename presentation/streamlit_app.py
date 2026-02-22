@@ -33,26 +33,41 @@ for i, col in enumerate(cols):
         if st.button(quick_tickers[i], use_container_width=True):
             ticker = quick_tickers[i]
 
+async def run_analysis_async(ticker, question, data_source, agents):
+    """Async function to run analysis"""
+    from connectors.yahoo import YahooConnector
+    from connectors.google_finance import GoogleFinanceConnector
+    from connectors.news import NewsConnector
+    from agents.chart_master import ChartMaster
+    from agents.news_hound import NewsHound
+    from agents.signal_pro import SignalPro
+    from agents.director import Director
+    from pipelines.full_analysis import FullAnalysisPipeline
+    
+    # Setup data providers
+    if data_source == "Yahoo Finance":
+        data_providers = [YahooConnector(), NewsConnector()]
+    elif data_source == "Google Finance":
+        data_providers = [GoogleFinanceConnector(), NewsConnector()]
+    else:
+        data_providers = [YahooConnector(), GoogleFinanceConnector(), NewsConnector()]
+    
+    # Run pipeline
+    pipeline = FullAnalysisPipeline(data_providers, agents, None)
+    return await pipeline.run(ticker, question)
+
+def run_analysis(ticker, question, data_source, agents):
+    """Wrapper to run async code"""
+    return asyncio.run(run_analysis_async(ticker, question, data_source, agents))
+
 if analyze_btn:
     with st.spinner('🤖 Running analysis... This may take 30-60 seconds.'):
         try:
-            # Import connectors
-            from connectors.yahoo import YahooConnector
-            from connectors.google_finance import GoogleFinanceConnector
-            from connectors.news import NewsConnector
+            # Import agents
             from agents.chart_master import ChartMaster
             from agents.news_hound import NewsHound
             from agents.signal_pro import SignalPro
             from agents.director import Director
-            from pipelines.full_analysis import FullAnalysisPipeline
-            
-            # Setup data providers
-            if data_source == "Yahoo Finance":
-                data_providers = [YahooConnector(), NewsConnector()]
-            elif data_source == "Google Finance":
-                data_providers = [GoogleFinanceConnector(), NewsConnector()]
-            else:
-                data_providers = [YahooConnector(), GoogleFinanceConnector(), NewsConnector()]
             
             # Setup agents
             agents = []
@@ -61,9 +76,8 @@ if analyze_btn:
             if use_signal: agents.append(SignalPro())
             if use_director: agents.append(Director())
             
-            # Run pipeline
-            pipeline = FullAnalysisPipeline(data_providers, agents, None)
-            result = await pipeline.run(ticker, question)
+            # Run analysis
+            result = run_analysis(ticker, question, data_source, agents)
             st.session_state.analysis_result = result
             
         except Exception as e:
